@@ -2,10 +2,9 @@ package org.ivcode.dnsproxy;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.concurrent.Executors;
 
+import org.ivcode.dnsproxy.firewall.AcceptFirewall;
 import org.ivcode.dnsproxy.firewall.Firewall;
-import org.ivcode.dnsproxy.firewall.FirewallBuilder;
 import org.ivcode.dnsproxy.server.Server;
 import org.ivcode.dnsproxy.server.proxy.HostInterceptor;
 import org.ivcode.dnsproxy.server.proxy.Interceptor;
@@ -14,9 +13,8 @@ import org.xbill.DNS.SimpleResolver;
 
 public class Main {
 	public static void main(String... args) throws UnknownHostException, InterruptedException {
-		Firewall firewall = new FirewallBuilder()
-				.acceptAddress("71.237.252.85")
-				.build();
+		Firewall acceptFirewall = new AcceptFirewall();
+		acceptFirewall.addAddress(InetAddress.getByName("71.237.252.85"));
 		
 		Interceptor fake = new HostInterceptor(InetAddress.getByName("0.0.0.0"));
 		Interceptor local = new HostInterceptor(InetAddress.getByName("71.237.252.85"));
@@ -36,7 +34,7 @@ public class Main {
 //		pmp.addInterceptor("mcoc-701.sparxcdn.net", local);
 		pmp.addInterceptor("mcoc-701.zap.net", local);
 		
-		Server server = new Server(53, pmp, firewall, Executors.newCachedThreadPool());
+		Server server = new Server(53, pmp, acceptFirewall);
 		server.start();
 		server.join();
 	}

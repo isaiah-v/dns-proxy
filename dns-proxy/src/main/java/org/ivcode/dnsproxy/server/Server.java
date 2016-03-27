@@ -4,6 +4,8 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.SocketException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 import org.ivcode.dnsproxy.firewall.Firewall;
@@ -12,28 +14,28 @@ public class Server {
 	
 	private static final Logger LOGGER = Logger.getLogger(Server.class);
 	
-	private final ExecutorService executor;
-	
 	private final MessageProcessor messageProcessor;
 	private final Firewall firewall;
 	private final int port;
 	
 	private volatile Thread thread;
+	private volatile ExecutorService executor;
 	private volatile DatagramSocket socket = null;
 	
-	public Server(int port, MessageProcessor messageProcessor, Firewall firewall, ExecutorService executor) {
+	public Server(int port, MessageProcessor messageProcessor, Firewall firewall) {
 		this.port = port;
 		this.firewall = firewall;
 		this.messageProcessor = messageProcessor;
-		this.executor = executor;
 	}
 	
 	public synchronized void start() throws InterruptedException {
 		// defines two shared variables, "thread" and "socket" 
 		try {
-			if(thread!=null) {
+			if(isRunning()) {
 				return;
 			}
+			
+			executor = Executors.newCachedThreadPool();
 			
 			socket = new DatagramSocket(port);
 			
@@ -47,16 +49,22 @@ public class Server {
 	
 	public synchronized void stop() throws InterruptedException {
 		// undefines two shared variables, "thread" and "socket"
-		if(this.thread==null) {
+		if(!isRunning()) {
 			return;
 		}
 		
+		// undefine socket
 		this.socket.close();
 		this.socket = null;
 		
+		// undefine thread
 		join();
-		
 		this.thread = null;
+		
+		// undefine executor
+		this.executor.shutdown();
+		this.executor.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
+		this.executor = null;
 	}
 	
 	public void join() throws InterruptedException {
@@ -89,5 +97,9 @@ public class Server {
 				LOGGER.error(th.getMessage(), th);
 			}
 		}
+	}
+	
+	private synchronized boolean isRunning() {
+		return this.thread!=null || this.socket!=null || this.executor!=null;
 	}
 }
